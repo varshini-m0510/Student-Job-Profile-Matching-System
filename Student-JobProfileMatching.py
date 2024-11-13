@@ -8,7 +8,7 @@ def create_connection():
     return mysql.connector.connect(
         host="localhost",  # Update as needed
         user="root",       # Update as needed
-        password="user",  # Update as needed
+        password="****",  # Update as needed
         database="resume_mngmt"  # Replace with your DB name
     )
 
@@ -79,14 +79,26 @@ def delete_skill(srn, skill_name):
     conn.commit()
     conn.close()
 
-# Add an achievement for the student
+# Add an achievement for the student with duplicate check
 def add_achievement(srn, achievement_name, description):
     conn = create_connection()
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO achievement (Achievement_Name, Description, SRN) VALUES (%s, %s, %s)", 
-                   (achievement_name, description, srn))
-    conn.commit()
-    conn.close()
+    try:
+        cursor.execute(
+            "INSERT INTO achievement (Achievement_Name, Description, SRN) VALUES (%s, %s, %s)", 
+            (achievement_name, description, srn)
+        )
+        conn.commit()
+        st.success("Achievement added successfully.")
+    except mysql.connector.Error as err:
+        # Check for duplicate entry error
+        if err.errno == 1062:  # 1062 is the error code for duplicate entry
+            st.write("<div style='color:red;'>This achievement has already been added for the student.</div>", unsafe_allow_html=True)
+        else:
+            st.write(f"<div style='color:red;'>An unexpected error occurred: {err}</div>", unsafe_allow_html=True)
+        time.sleep(5)  # Optional: small delay to let the user read the message
+    finally:
+        conn.close()
 
 # Delete an achievement for the student
 def delete_achievement(srn, achievement_name):
@@ -109,7 +121,7 @@ def get_all_skills():
 def filter_students(min_cgpa, selected_skills):
     conn = create_connection()
     cursor = conn.cursor(dictionary=True)
-    skills_list = ', '.join(selected_skills)  
+    skills_list = ','.join(selected_skills)  
     cursor.execute("CALL filter_students_by_cgpa_and_skills(%s, %s)", (min_cgpa, skills_list))
     results = cursor.fetchall()
     conn.close()
